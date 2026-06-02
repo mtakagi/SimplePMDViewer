@@ -1,0 +1,58 @@
+name: 'SimplePMDViewer'
+targets:
+  SimplePMDViewer:
+    type: 'application'
+    platform: 'macOS'
+    deploymentTarget: "13.0"
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: 'SimplePMDViewer'
+        NSHighResolutionCapable: true
+        NSMainStoryboardFile: 'Main'
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: 'PMD Model'
+            LSHandlerRank: 'Owner'
+            LSItemContentTypes:
+              - 'org.mmd.pmd'
+        UTExportedTypeDeclarations:
+          - UTTypeIdentifier: 'org.mmd.pmd'
+            UTTypeDescription: 'MikuMikuDance Polygon Model Data'
+            UTTypeConformsTo:
+              - 'public.data'
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - 'pmd'
+              public.mime-type:
+                - 'application/x-pmd'
+    sources:
+      - 'App'
+      - 'App/Sources'
+      - 'Shared'
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: 'com.abadbabe.SimplePMDViewer'
+        SWIFT_OBJC_BRIDGING_HEADER: 'Shared/ShaderTypes.h'
+    dependencies:
+      - sdk: 'Metal.framework'
+      - sdk: 'MetalKit.framework'
+      - sdk: 'QuartzCore.framework'
+  QuickLookExtension:
+    type: 'app-extension'
+    platform: 'macOS'
+    deploymentTarget: "13.0"
+    info:
+      path: QuickLookExtension/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: 'com.apple.quicklook.preview'
+          NSExtensionPrincipalClass: '$(PRODUCT_MODULE_NAME).PreviewProvider'
+        QLSupportedContentTypes:
+          - 'org.mmd.pmd'
+    sources:
+      - 'QuickLookExtension'
+      - 'QuickLookExtension/Sources'
+      - 'Shared'
+    settings:
+      base:
+        SWIFT_OBJC_BRIDGING_HEADER: 'Shared/ShaderTypes.h'
