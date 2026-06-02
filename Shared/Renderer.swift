@@ -1,6 +1,6 @@
 //
 //  Renderer.swift
-//  metal-proj Shared
+//  SimplePMDViewer Shared
 //
 //  Created by mtakagi on 2025/10/20.
 //
@@ -11,37 +11,22 @@ import Metal
 import MetalKit
 import simd
 
-// The 256 byte aligned size of our uniform structure
-let alignedUniformsSize = (MemoryLayout<Uniforms>.size + 0xFF) & -0x100
-
-let maxBuffersInFlight = 3
-
-enum RendererError: Error {
-  case badVertexDescriptor
-}
-
 class Renderer: NSObject, MTKViewDelegate {
 
     public let device: MTLDevice
     let commandQueue: MTLCommandQueue
     var pipelineState: MTLRenderPipelineState
-    var depthState: MTLDepthStencilState
-    var transparentDepthState: MTLDepthStencilState
-    
-    let textureLoader : MTKTextureLoader
+//    var depthState: MTLDepthStencilState
     
     // PMDモデルのデータ
     var vertexBuffer: MTLBuffer!
     var indexBuffer: MTLBuffer!
-    var materials: [PMDMaterial] = []
-    var textures: [MTLTexture?] = []
-    var dummyWhiteTexture: MTLTexture!
     
-    // 行列用のバッファと状態
+    let materials: [PMDMaterial]
+
     var uniformBuffer: MTLBuffer!
     var projectionMatrix = matrix_float4x4()
-    var rotation: Float = 0
-
+    
     @MainActor
     init?(metalKitView: MTKView, modelUrl: URL) {
         // 1. まずデバイスとキューを確保
@@ -51,7 +36,7 @@ class Renderer: NSObject, MTKViewDelegate {
         self.device = device
 
         // 画面のフォーマット設定
-        metalKitView.depthStencilPixelFormat = .depth32Float_stencil8
+//        metalKitView.depthStencilPixelFormat = .depth32Float_stencil8
         metalKitView.colorPixelFormat = .bgra8Unorm_srgb
         metalKitView.clearColor = MTLClearColor(red: 1, green: 1, blue: 1, alpha: 1)
 
@@ -65,37 +50,30 @@ class Renderer: NSObject, MTKViewDelegate {
         pipelineDescriptor.vertexFunction = vertexFunction
         pipelineDescriptor.fragmentFunction = fragmentFunction
         pipelineDescriptor.vertexDescriptor = mtlVertexDescriptor
+        
         pipelineDescriptor.colorAttachments[0].pixelFormat = metalKitView.colorPixelFormat
-        
-        pipelineDescriptor.colorAttachments[0].isBlendingEnabled = true
-        pipelineDescriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
-        pipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
-        pipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor = .sourceAlpha
-        pipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
-        
-        pipelineDescriptor.depthAttachmentPixelFormat = metalKitView.depthStencilPixelFormat
-        pipelineDescriptor.stencilAttachmentPixelFormat = metalKitView.depthStencilPixelFormat
+//        pipelineDescriptor.colorAttachments[0].isBlendingEnabled = true
+//        pipelineDescriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+//        pipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+//        pipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor = .sourceAlpha
+//        pipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+//        
+//        pipelineDescriptor.depthAttachmentPixelFormat = metalKitView.depthStencilPixelFormat
+//        pipelineDescriptor.stencilAttachmentPixelFormat = metalKitView.depthStencilPixelFormat
         
         guard let pState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else { return nil }
         self.pipelineState = pState
 
         // 3. 深度テストの設定
-        let depthDescriptor = MTLDepthStencilDescriptor()
-        depthDescriptor.depthCompareFunction = .lessEqual
-        depthDescriptor.isDepthWriteEnabled = true
-        self.depthState = device.makeDepthStencilState(descriptor: depthDescriptor)!
+//        let depthDescriptor = MTLDepthStencilDescriptor()
+//        depthDescriptor.depthCompareFunction = .lessEqual
+//        depthDescriptor.isDepthWriteEnabled = true
+//        self.depthState = device.makeDepthStencilState(descriptor: depthDescriptor)!
         
-        depthDescriptor.isDepthWriteEnabled = false
-        
-        self.transparentDepthState = device.makeDepthStencilState(descriptor: depthDescriptor)!
-        
-        self.textureLoader = MTKTextureLoader(device: device)
-
         // 4. Uniformバッファの作成
         self.uniformBuffer = device.makeBuffer(length: MemoryLayout<Uniforms>.size, options: .storageModeShared)
-
+        
         // 5. PMDモデルの読み込みとバッファ化（super.initの前に行う）
-        // ※ bundle内に "model.pmd" というファイルが入っている前提です
         guard let pmdData = try? Renderer.parsePMDModel(url: modelUrl, device: device) else {
             print("PMDモデルの読み込みに失敗しました。ファイル名などを確認してください。")
             return nil
@@ -104,42 +82,9 @@ class Renderer: NSObject, MTKViewDelegate {
         // 読み込んだデータを自身のプロパティにセット
         self.vertexBuffer = pmdData.vertexBuffer
         self.indexBuffer = pmdData.indexBuffer
+        
         self.materials = pmdData.materials
         
-        let texDesc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false)
-        dummyWhiteTexture = device.makeTexture(descriptor: texDesc)
-        let whitePixel: [UInt8] = [255, 255, 255, 255] // 真っ白＆完全に不透明
-        dummyWhiteTexture.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0, withBytes: whitePixel, bytesPerRow: 4)
-        
-        for material in self.materials {
-            let rawPath = material.textureFilePath
-            if !rawPath.isEmpty {
-                
-                // PMD特有の仕様: "eye.bmp*eye.sph" のようにアスタリスクで複数ファイルが指定されることがあるため、最初の画像名だけ取り出す
-                let mainPath = rawPath.components(separatedBy: "*").first ?? String(rawPath)
-                
-                let fileNameComponents = mainPath.split(separator: ".")
-                if let firstComponent = fileNameComponents.first {
-                    let textureName = String(firstComponent)
-                    let `extension` = String(fileNameComponents[1])
-                    let baseURL = modelUrl.deletingLastPathComponent()
-                    
-                    let textureUrl = baseURL.appendingPathComponent("\(textureName).\(`extension`)")
-                        let options: [MTKTextureLoader.Option : Any] = [.origin: MTKTextureLoader.Origin.topLeft]
-                        if let texture = try? textureLoader.newTexture(URL: textureUrl, options: options) {
-                            textures.append(texture)
-                            print("✅ 成功: [\(rawPath)] -> \(textureName).\(`extension`) を読み込みました")
-                            continue
-                        } else {
-                            print("⚠️ 破損?: \(textureName).\(`extension`) はありますが、画像として読み込めませんでした")
-                        }
-                }
-            } else {
-                print("⚪️ テクスチャなし (単色マテリアル)\(material.diffuse)")
-            }
-            textures.append(dummyWhiteTexture)
-        }
-
         // すべての準備が整ったので親クラスを初期化
         super.init()
     }
@@ -159,7 +104,7 @@ class Renderer: NSObject, MTKViewDelegate {
         let indexCount = Int(reader.readUInt32LE())
         let indices: [UInt16] = try reader.readArray(count: indexCount)
         
-        // マテリアルの読み込み（※エラーの原因だった箇所: [PMDMaterial] を明示）
+        // マテリアルの読み込み
         let materialCount = Int(reader.readUInt32LE())
         let materials: [PMDMaterial] = try reader.readArray(count: materialCount)
         
@@ -203,56 +148,27 @@ class Renderer: NSObject, MTKViewDelegate {
         return descriptor
     }
 
-    // 毎フレームの行列計算
-    private func updateGameState() {
-        var uniforms = Uniforms()
-        uniforms.projectionMatrix = projectionMatrix
-        
-        // PMDモデルは大きいことが多いので、少し遠くから映す（Zを-30などに設定）
-        let modelMatrix = matrix4x4_rotation(radians: rotation, axis: SIMD3<Float>(0, 1, 0)) // Y軸回転
-        let viewMatrix = matrix4x4_translation(0.0, -15.0, -10.0)
-        uniforms.modelViewMatrix = simd_mul(viewMatrix, modelMatrix)
-        
-        // 計算結果をバッファに書き込む
-        memcpy(uniformBuffer.contents(), &uniforms, MemoryLayout<Uniforms>.size)
-        rotation += 0.01 // 回転速度
-    }
-
     // 描画処理のメインループ
     func draw(in view: MTKView) {
-        updateGameState()
-
         guard let commandBuffer = commandQueue.makeCommandBuffer(),
               let renderPassDescriptor = view.currentRenderPassDescriptor,
               let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
 
         // 両面描画（MMDモデルは両面描画しないと服や髪が透けることがあるため .none に設定）
         renderEncoder.setCullMode(.none)
-        renderEncoder.setFrontFacing(.clockwise)
-        renderEncoder.setDepthStencilState(depthState)
+//        renderEncoder.setDepthStencilState(depthState)
 
         renderEncoder.setRenderPipelineState(pipelineState)
 
         // バッファをシェーダーに渡す
         renderEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
         renderEncoder.setVertexBuffer(uniformBuffer, offset: 0, index: 1)
-        renderEncoder.setFragmentBuffer(uniformBuffer, offset: 0, index: 1)
 
         // PMDはマテリアルごとに使うインデックスの数が決まっているので、ループして少しずつ描画する
         var indexOffset = 0
-        for (i, material) in materials.enumerated() {
+        for material in materials {
             let drawCount = Int(material.indicesNum)
-            let simdLength = MemoryLayout<SIMD4<Float>>.stride
-            var diffuse = SIMD4<Float>(material.diffuse, material.alpha)
-            var ambient = SIMD4<Float>(material.ambient, 1);
-            
-            if i < textures.count, let texture = textures[i] {
-                renderEncoder.setFragmentTexture(texture, index: 0)
-            }
-            
-            renderEncoder.setFragmentBytes(&diffuse, length: simdLength, index: 2)
-            renderEncoder.setFragmentBytes(&ambient, length: simdLength, index: 3)
-            
+                        
             renderEncoder.drawIndexedPrimitives(
                 type: .triangle,
                 indexCount: drawCount,
@@ -277,12 +193,18 @@ class Renderer: NSObject, MTKViewDelegate {
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
         let aspect = Float(size.width) / Float(size.height)
         projectionMatrix = matrix_perspective_right_hand(fovyRadians: radians_from_degrees(65), aspectRatio: aspect, nearZ: 1.0, farZ: 500.0)
+        var uniforms = Uniforms()
+        uniforms.projectionMatrix = projectionMatrix
+        // Y軸回転
+        let modelMatrix = matrix4x4_rotation(radians: .pi, axis: SIMD3<Float>(0, 1, 0))
+        // PMDモデルは大きいことが多いので、少し遠くから映す（Zを-30などに設定）
+        let viewMatrix = matrix4x4_translation(0.0, -10.0, -20.0)
+        uniforms.modelViewMatrix = simd_mul(viewMatrix, modelMatrix)
+        
+        // 計算結果をバッファに書き込む
+        memcpy(uniformBuffer.contents(), &uniforms, MemoryLayout<Uniforms>.size)
     }
 }
-
-// ==========================================
-// 数学ユーティリティ群
-// ==========================================
 
 func matrix4x4_rotation(radians: Float, axis: SIMD3<Float>) -> matrix_float4x4 {
     let unitAxis = normalize(axis)

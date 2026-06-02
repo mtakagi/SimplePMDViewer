@@ -1,6 +1,6 @@
 //
 //  AppDelegate.swift
-//  metal-proj macOS
+//  SimplePMDViewer
 //
 //  Created by mtakagi on 2025/10/20.
 //
