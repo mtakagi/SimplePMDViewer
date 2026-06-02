@@ -16,7 +16,6 @@ class Renderer: NSObject, MTKViewDelegate {
     public let device: MTLDevice
     let commandQueue: MTLCommandQueue
     var pipelineState: MTLRenderPipelineState
-//    var depthState: MTLDepthStencilState
     
     // PMDモデルのデータ
     var vertexBuffer: MTLBuffer!
@@ -36,7 +35,6 @@ class Renderer: NSObject, MTKViewDelegate {
         self.device = device
 
         // 画面のフォーマット設定
-//        metalKitView.depthStencilPixelFormat = .depth32Float_stencil8
         metalKitView.colorPixelFormat = .bgra8Unorm_srgb
         metalKitView.clearColor = MTLClearColor(red: 1, green: 1, blue: 1, alpha: 1)
 
@@ -52,23 +50,9 @@ class Renderer: NSObject, MTKViewDelegate {
         pipelineDescriptor.vertexDescriptor = mtlVertexDescriptor
         
         pipelineDescriptor.colorAttachments[0].pixelFormat = metalKitView.colorPixelFormat
-//        pipelineDescriptor.colorAttachments[0].isBlendingEnabled = true
-//        pipelineDescriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
-//        pipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
-//        pipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor = .sourceAlpha
-//        pipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
-//        
-//        pipelineDescriptor.depthAttachmentPixelFormat = metalKitView.depthStencilPixelFormat
-//        pipelineDescriptor.stencilAttachmentPixelFormat = metalKitView.depthStencilPixelFormat
         
         guard let pState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else { return nil }
         self.pipelineState = pState
-
-        // 3. 深度テストの設定
-//        let depthDescriptor = MTLDepthStencilDescriptor()
-//        depthDescriptor.depthCompareFunction = .lessEqual
-//        depthDescriptor.isDepthWriteEnabled = true
-//        self.depthState = device.makeDepthStencilState(descriptor: depthDescriptor)!
         
         // 4. Uniformバッファの作成
         self.uniformBuffer = device.makeBuffer(length: MemoryLayout<Uniforms>.size, options: .storageModeShared)
@@ -156,7 +140,6 @@ class Renderer: NSObject, MTKViewDelegate {
 
         // 両面描画（MMDモデルは両面描画しないと服や髪が透けることがあるため .none に設定）
         renderEncoder.setCullMode(.none)
-//        renderEncoder.setDepthStencilState(depthState)
 
         renderEncoder.setRenderPipelineState(pipelineState)
 
