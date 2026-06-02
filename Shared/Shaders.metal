@@ -1,6 +1,6 @@
 //
 //  Shaders.metal
-//  metal-proj Shared
+//  SimplePMDViewer Shared
 //
 //  Created by mtakagi on 2025/10/20.
 //
