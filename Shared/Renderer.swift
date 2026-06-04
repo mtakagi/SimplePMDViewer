@@ -138,9 +138,6 @@ class Renderer: NSObject, MTKViewDelegate {
               let renderPassDescriptor = view.currentRenderPassDescriptor,
               let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
 
-        // 両面描画（MMDモデルは両面描画しないと服や髪が透けることがあるため .none に設定）
-        renderEncoder.setCullMode(.none)
-
         renderEncoder.setRenderPipelineState(pipelineState)
 
         // バッファをシェーダーに渡す
