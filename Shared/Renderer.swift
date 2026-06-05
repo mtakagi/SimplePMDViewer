@@ -54,10 +54,10 @@ class Renderer: NSObject, MTKViewDelegate {
         guard let pState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else { return nil }
         self.pipelineState = pState
         
-        // 4. Uniformバッファの作成
+        // 3. Uniformバッファの作成
         self.uniformBuffer = device.makeBuffer(length: MemoryLayout<Uniforms>.size, options: .storageModeShared)
         
-        // 5. PMDモデルの読み込みとバッファ化（super.initの前に行う）
+        // 4. PMDモデルの読み込みとバッファ化（super.initの前に行う）
         guard let pmdData = try? Renderer.parsePMDModel(url: modelUrl, device: device) else {
             print("PMDモデルの読み込みに失敗しました。ファイル名などを確認してください。")
             return nil
