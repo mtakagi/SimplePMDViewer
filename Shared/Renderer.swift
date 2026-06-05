@@ -23,7 +23,7 @@ class Renderer: NSObject, MTKViewDelegate {
     var indexBuffer: MTLBuffer!
     
     let materials: [PMDMaterial]
-    var textures: [String:MTLTexture] = [:]
+    let textures: [MTLTexture?]
 
     var uniformBuffer: MTLBuffer!
     var projectionMatrix = matrix_float4x4()
@@ -81,19 +81,28 @@ class Renderer: NSObject, MTKViewDelegate {
         
         let textureLoader = MTKTextureLoader(device: device)
         let url = modelUrl.deletingLastPathComponent()
+        var cachedTextures: [String: MTLTexture] = [:]
         
-        for material in materials {
-            if material.textureFilePath.isEmpty || textures[material.textureFilePath] != nil {
-                continue
+        self.textures = materials.map { material -> MTLTexture? in
+            if material.textureFilePath.isEmpty {
+                return nil
             }
             
             let mainPath = material.textureFilePath.components(separatedBy: "*").first ?? material.textureFilePath
-            let textureUrl = url.appendingPathComponent(mainPath)
-            let texture = try? textureLoader.newTexture(URL: textureUrl, options: [.origin : MTKTextureLoader.Origin.topLeft])
             
-            if let texture = texture {
-                textures[mainPath] = texture
+            if let texture = cachedTextures[mainPath] {
+                return texture
             }
+            
+            let textureUrl = url.appendingPathComponent(mainPath)
+
+            if let texture = try? textureLoader.newTexture(URL: textureUrl, options: [.origin : MTKTextureLoader.Origin.topLeft]) {
+                cachedTextures[mainPath] = texture
+                
+                return texture
+            }
+            
+            return nil
         }
         
         // すべての準備が整ったので親クラスを初期化
@@ -174,17 +183,11 @@ class Renderer: NSObject, MTKViewDelegate {
 
         // PMDはマテリアルごとに使うインデックスの数が決まっているので、ループして少しずつ描画する
         var indexOffset = 0
-        for material in materials {
+        for (i, material) in materials.enumerated() {
             let drawCount = Int(material.indicesNum)
             var diffuse = SIMD4<Float>(material.diffuse, material.alpha)
-            let mainPath = material.textureFilePath.components(separatedBy: "*").first ?? material.textureFilePath
             
-            if let texture = textures[mainPath] {
-                renderEncoder.setFragmentTexture(texture, index: 0)
-            } else {
-                renderEncoder.setFragmentTexture(nil, index: 0)
-            }
-            
+            renderEncoder.setFragmentTexture(textures[i], index: 0)
             renderEncoder.setFragmentBytes(&diffuse, length: MemoryLayout<SIMD4<Float>>.size, index: 0)
                         
             renderEncoder.drawIndexedPrimitives(
