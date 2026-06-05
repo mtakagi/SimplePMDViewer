@@ -37,6 +37,8 @@ targets:
       - sdk: 'Metal.framework'
       - sdk: 'MetalKit.framework'
       - sdk: 'QuartzCore.framework'
+      - target: QuickLookExtension
+        embed: true
   QuickLookExtension:
     type: 'app-extension'
     platform: 'macOS'
@@ -46,13 +48,22 @@ targets:
       properties:
         NSExtension:
           NSExtensionPointIdentifier: 'com.apple.quicklook.preview'
-          NSExtensionPrincipalClass: '$(PRODUCT_MODULE_NAME).PreviewProvider'
-        QLSupportedContentTypes:
-          - 'org.mmd.pmd'
+          NSExtensionPrincipalClass: '$(PRODUCT_MODULE_NAME).PreviewViewController'
+          
+          NSExtensionAttributes:
+            QLSupportedContentTypes:
+              - 'org.mmd.pmd'
     sources:
       - 'QuickLookExtension'
       - 'QuickLookExtension/Sources'
       - 'Shared'
     settings:
       base:
+        CODE_SIGN_ENTITLEMENTS: 'QuickLookExtension/QuickLookExtension.entitlements'
+        PRODUCT_BUNDLE_IDENTIFIER: 'com.abadbabe.SimplePMDViewer.QuickLookExtension'
         SWIFT_OBJC_BRIDGING_HEADER: 'Shared/ShaderTypes.h'
+    dependencies:
+      - sdk: 'Metal.framework'
+      - sdk: 'MetalKit.framework'
+      - sdk: 'QuartzCore.framework'
+
