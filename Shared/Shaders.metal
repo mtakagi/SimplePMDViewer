@@ -30,7 +30,7 @@ vertex float4 vertexShader(Vertex in [[stage_in]],
     return uniforms.projectionMatrix * uniforms.modelViewMatrix * position;
 }
 
-fragment float4 fragmentShader()
+fragment float4 fragmentShader(constant float4 & diffuse [[ buffer(0) ]])
 {
-    return float4(0, 0, 0, 1);
+    return diffuse;
 }

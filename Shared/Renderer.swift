@@ -16,6 +16,7 @@ class Renderer: NSObject, MTKViewDelegate {
     public let device: MTLDevice
     let commandQueue: MTLCommandQueue
     var pipelineState: MTLRenderPipelineState
+    var depthState: MTLDepthStencilState
     
     // PMDモデルのデータ
     var vertexBuffer: MTLBuffer!
@@ -148,6 +149,9 @@ class Renderer: NSObject, MTKViewDelegate {
         var indexOffset = 0
         for material in materials {
             let drawCount = Int(material.indicesNum)
+            var diffuse = SIMD4<Float>(material.diffuse, material.alpha)
+            
+            renderEncoder.setFragmentBytes(&diffuse, length: MemoryLayout<SIMD4<Float>>.size, index: 0)
                         
             renderEncoder.drawIndexedPrimitives(
                 type: .triangle,
