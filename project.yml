@@ -74,18 +74,7 @@ schemes:
         QuickLookExtension: all
     run:
       config: Debug
-    profile:
-      config: Release
-    analyze:
-      config: Debug
-    archive:
-      config: Release
-  QuickLookExtension:
-    build:
-      targets:
-        QuickLookExtension: all
-    run:
-      config: Debug
+      executable: SimplePMDViewer
     profile:
       config: Release
     analyze:
