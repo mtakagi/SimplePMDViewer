@@ -37,7 +37,13 @@ class Renderer: NSObject, MTKViewDelegate {
 
         // 画面のフォーマット設定
         metalKitView.colorPixelFormat = .bgra8Unorm_srgb
+        metalKitView.depthStencilPixelFormat = .depth32Float_stencil8
         metalKitView.clearColor = MTLClearColor(red: 1, green: 1, blue: 1, alpha: 1)
+        
+        let depthStateDescriptor = MTLDepthStencilDescriptor()
+        depthStateDescriptor.depthCompareFunction = .less
+        depthStateDescriptor.isDepthWriteEnabled = true
+        self.depthState = device.makeDepthStencilState(descriptor:depthStateDescriptor)!
 
         // 2. パイプライン（設計図）の作成
         let mtlVertexDescriptor = Renderer.buildPMDVertexDescriptor()
@@ -51,6 +57,8 @@ class Renderer: NSObject, MTKViewDelegate {
         pipelineDescriptor.vertexDescriptor = mtlVertexDescriptor
         
         pipelineDescriptor.colorAttachments[0].pixelFormat = metalKitView.colorPixelFormat
+        pipelineDescriptor.depthAttachmentPixelFormat = metalKitView.depthStencilPixelFormat
+        pipelineDescriptor.stencilAttachmentPixelFormat = metalKitView.depthStencilPixelFormat
         
         guard let pState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else { return nil }
         self.pipelineState = pState
@@ -140,6 +148,7 @@ class Renderer: NSObject, MTKViewDelegate {
               let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
 
         renderEncoder.setRenderPipelineState(pipelineState)
+        renderEncoder.setDepthStencilState(depthState)
 
         // バッファをシェーダーに渡す
         renderEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
