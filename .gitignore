@@ -62,3 +62,7 @@ fastlane/screenshots/**/*.png
 fastlane/test_output
 
 *.xcodeproj
+
+# XcodeGen generated Info.plist
+App/Info.plist
+QuickLookExtension/Info.plist
