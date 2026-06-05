@@ -66,4 +66,29 @@ targets:
       - sdk: 'Metal.framework'
       - sdk: 'MetalKit.framework'
       - sdk: 'QuartzCore.framework'
-
+schemes:
+  SimplePMDViewer:
+    build:
+      targets:
+        SimplePMDViewer: all
+        QuickLookExtension: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+  QuickLookExtension:
+    build:
+      targets:
+        QuickLookExtension: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
