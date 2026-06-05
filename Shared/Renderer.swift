@@ -23,6 +23,7 @@ class Renderer: NSObject, MTKViewDelegate {
     var indexBuffer: MTLBuffer!
     
     let materials: [PMDMaterial]
+    var textures: [String:MTLTexture] = [:]
 
     var uniformBuffer: MTLBuffer!
     var projectionMatrix = matrix_float4x4()
@@ -77,6 +78,23 @@ class Renderer: NSObject, MTKViewDelegate {
         self.indexBuffer = pmdData.indexBuffer
         
         self.materials = pmdData.materials
+        
+        let textureLoader = MTKTextureLoader(device: device)
+        let url = modelUrl.deletingLastPathComponent()
+        
+        for material in materials {
+            if material.textureFilePath.isEmpty || textures[material.textureFilePath] != nil {
+                continue
+            }
+            
+            let mainPath = material.textureFilePath.components(separatedBy: "*").first ?? material.textureFilePath
+            let textureUrl = url.appendingPathComponent(mainPath)
+            let texture = try? textureLoader.newTexture(URL: textureUrl, options: [.origin : MTKTextureLoader.Origin.topLeft])
+            
+            if let texture = texture {
+                textures[mainPath] = texture
+            }
+        }
         
         // すべての準備が整ったので親クラスを初期化
         super.init()
@@ -159,6 +177,13 @@ class Renderer: NSObject, MTKViewDelegate {
         for material in materials {
             let drawCount = Int(material.indicesNum)
             var diffuse = SIMD4<Float>(material.diffuse, material.alpha)
+            let mainPath = material.textureFilePath.components(separatedBy: "*").first ?? material.textureFilePath
+            
+            if let texture = textures[mainPath] {
+                renderEncoder.setFragmentTexture(texture, index: 0)
+            } else {
+                renderEncoder.setFragmentTexture(nil, index: 0)
+            }
             
             renderEncoder.setFragmentBytes(&diffuse, length: MemoryLayout<SIMD4<Float>>.size, index: 0)
                         
